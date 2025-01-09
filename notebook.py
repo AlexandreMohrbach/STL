@@ -75,7 +75,7 @@ def __(mo, show):
         'A': (0, 0, 0), 'B': (1, 0, 0), 'C': (0, 1, 0), 'D': (1, 1, 0),  # Sommets de la face inférieure
         'E': (0, 0, 1), 'F': (1, 0, 1), 'G': (0, 1, 1), 'H': (1, 1, 1)   # Sommets de la face supérieure
     } #coordonnés des sommets du cube
-    # J'ai aussi donné des noms aux sommets et défini à l'avance les décompositions des faces en triangles 
+    # J'ai aussi donné des noms aux sommets et défini à l'avance les décomPlacements des faces en triangles 
 
     normales= [(0,0,1),(0,0,-1),(0,1,0),(0,-1,0),(1,0,0),(-1,0,0)] # Pour ce cube on connait les normales aux faces, pas besoin de les calculer 
 
@@ -93,7 +93,7 @@ def __(mo, show):
         # Face droite de normale (1, 0, 0)
         (('C', 'D', 'G'), (1, 0, 0)), (('D', 'H', 'G'), (1, 0, 0))
                    ]
-
+    #J'ai défini tous les points, toutes les faces et les aient associées à leurs normales 
     with open("data/cube.stl", mode="w", encoding="utf-8") as cube_stl: #on passe en mode w pour écrire dans le fichier 
         cube_stl.write("solid\n")
         for (triangle,normale) in triangles_normales:
@@ -198,11 +198,12 @@ def __(mo, np):
 
 
     def make_STL(triangles, normals=None):
+        print(triangles.shape)
 
         n= triangles.shape[0]
 
         if normals is None: #On calcule les normes si elles ne sont pas données 
-            normals = np.zeros((n, 3), dtype=np.float32)
+            normals = np.zeros((n, 3))  #initialisation
             for i in range(n):# triangles[i,j,k] avec 0<=i<=n-1 / 0<=j<=2 (3 sommets) / 0<=k<=2 (3coordonnées)
                 v1 = triangles[i, 1, :] - triangles[i, 0, :] 
                 v2 = triangles[i, 2, :] - triangles[i, 0, :] #v1,v2 sont 2 arrêtes du triangle. On a besoin que de deux arrêtes pour trouver le vecteur normal
@@ -213,10 +214,10 @@ def __(mo, np):
         #print(v1,v2,normal)
 
         for i in range(n):
-            stl_str += f"  facet normal {normals[i, 0]} {normals[i, 1]} {normals[i, 2]}\n"
+            stl_str += f"  facet normal {normals[i, 0]} {normals[i, 1]} {normals[i, 2]}\n" #Pour chaque triangle on a une normale 
             stl_str += "    outer loop\n"
             for j in range(3):
-                stl_str += f"      vertex {triangles[i, j, 0]} {triangles[i, j, 1]} {triangles[i, j, 2]}\n" 
+                stl_str += f"      vertex {triangles[i, j, 0]} {triangles[i, j, 1]} {triangles[i, j, 2]}\n" #pour chaque triangle on a 3 sommets
             stl_str += "    endloop\n"
             stl_str += "  endfacet\n"
 
@@ -224,7 +225,7 @@ def __(mo, np):
 
         return stl_str
 
-    #Vérification avec exemple donné 
+    #Vérification avec l'exemple donné 
     make_STL(np.array(
         [
             [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
@@ -299,13 +300,14 @@ def __(np):
                 else:
                     tokens.append(word)
         return tokens
+    #Si float(word) est un flottant il est ajouté en tant que tel sinon il est ajouté comme word
 
 
-    #with open("data/square.stl", mode="rt", encoding="us-ascii") as square_file:
-        #square_stl = square_file.read()
-    #tokens = tokenize(square_stl)
-    #print(tokens)
-    return est_float, tokenize
+    with open("data/square.stl", mode="rt", encoding="us-ascii") as square_file2:
+        square_stl2 = square_file2.read()
+        tokens90 = tokenize(square_stl2)
+        print(tokens90)
+    return est_float, square_file2, square_stl2, tokenize, tokens90
 
 
 @app.cell
@@ -372,45 +374,41 @@ def __(mo):
 
 
 @app.cell
-def __(normales, np, tokenize):
+def __(np, tokenize):
     def parse(tokens):
-
-        # Initialize variables
+        
         triangles = []
         normals = []
         name = None
-
         i = 0
+        
         while i < len(tokens):
             token = tokens[i]
-
             if token == "solid":
-                name = tokens[i + 1]  # Solid name follows "solid"
-                i += 2
+                name = tokens[i + 1]  #Si le token est "solid" cela signifie que le token suivant contient le nom (document STL)
+                i += 2 #parce que les 2 prochains auraient été les tokens "solid" et "name"
             elif token == "facet":
-                # Parse the normal vector
-                normal = [float(tokens[i + 2]), float(tokens[i + 3]), float(tokens[i + 4])]
+                normal = [float(tokens[i + 2]), float(tokens[i + 3]), float(tokens[i + 4])] # le ieme aurait été le token "facet" et le i+1 aurait été "normal"
                 normals.append(normal)
-                i += 5
+                i += 5 #On passe les tokens que l'on vient de traiter
             elif token == "outer":
-                i += 2  # Skip "outer loop"
-                # Parse the 3 vertices of the triangle
-                vertex1 = [float(tokens[i + 1]), float(tokens[i + 2]), float(tokens[i + 3])]
-                vertex2 = [float(tokens[i + 5]), float(tokens[i + 6]), float(tokens[i + 7])]
-                vertex3 = [float(tokens[i + 9]), float(tokens[i + 10]), float(tokens[i + 11])]
+                i += 2  #On passe les 2 tokens "outer" et "loop"
+
+                vertex1 = [float(tokens[i + 1]), float(tokens[i + 2]), float(tokens[i + 3])] #Le ieme aurait été vertex
+                vertex2 = [float(tokens[i + 5]), float(tokens[i + 6]), float(tokens[i + 7])] #le i+4 ieme aurait été vertex
+                vertex3 = [float(tokens[i + 9]), float(tokens[i + 10]), float(tokens[i + 11])] #le i+8ieme aurait été vertex
                 triangles.append([vertex1, vertex2, vertex3])
-                i += 12  # Move past the 3 vertices
+                i += 12 #on passe toute la section que l'on vient de traiter (4 tokens x 3 = 12 )
             elif token == "endfacet":
-                i += 1  # Skip "endfacet"
+                i += 1  
             elif token == "endsolid":
-                i += 1  # Skip "endsolid"
+                i += 1  
             else:
-                i += 1  # Move to the next token
+                i += 1 #On passe au token suivant 
 
-        # Convert lists to NumPy arrays
-        triangles = np.array(triangles, dtype=np.float32)
-        normals = np.array(normals, dtype=np.float32)
 
+        triangles = np.array(triangles)
+        normals = np.array(normals)
         return triangles, normals, name
 
     with open("data/square.stl", mode="rt", encoding="us-ascii") as square_file:
@@ -418,7 +416,7 @@ def __(normales, np, tokenize):
     tokens = tokenize(square_stl)
     triangles, normals, name = parse(tokens)
     print(repr(triangles))
-    print(repr(normales))
+    print(repr(normals))
     print(repr(name))
     return name, normals, parse, square_file, square_stl, tokens, triangles
 
@@ -466,7 +464,7 @@ def __(mo, np, parse, tokenize):
     tokens2 = tokenize(cube2_stl)
     triangles2, normales2, name2 = parse(tokens2)
     print (positive_octant_rule(triangles2))
-    #Mon cube vérifie la règle
+    #Mon cube vérifie la règle (si on se réfère au code de construction du cube, j'ai donné que des coordonnées positives pour les sommets du cube)
 
     with open("data/teapot.stl", mode="rt", encoding="us-ascii") as tea_file:
         tea_stl = tea_file.read()
@@ -496,6 +494,7 @@ def __(np, parse, tokenize):
     def ascending_rule(triangles):
         barycentres = np.mean(triangles, axis=1) #Tableau où il n'y a que les barycentres de chaque triangle (barycentre= moyenne arithmétique des coord x,y,z)
         z_coords = barycentres[:, 2]  # dans le tableau barycentres on récupère la liste des coordonnées z 
+        #print(z_coords)
         compteur = 0
         for i in range(1, len(z_coords)): 
             if z_coords[i-1] > z_coords[i]:
@@ -539,14 +538,15 @@ def __(parse, tokenize):
     def edge_rule(triangles):
         edges = []
         for triangle in triangles:
-            edges.append(tuple(sorted((tuple(triangle[0]), tuple(triangle[1]))))) #sorted permet de ne pas avoir une orientation pour les arrêtes, l'arrête AB est la même que BA 
+            edges.append(tuple(sorted((tuple(triangle[0]), tuple(triangle[1]))))) #sorted permet de ne pas avoir une orientation pour les arrêtes, l'arrête AB est la même que BA
+    #On passe tout en tuple pour avoir l'immuabilité 
             edges.append(tuple(sorted((tuple(triangle[1]), tuple(triangle[2])))))
             edges.append(tuple(sorted((tuple(triangle[2]), tuple(triangle[0])))))
 
         from collections import Counter
-        edge_counts = Counter(edges) #Counter va compter toutes les occurences des éléments de edges, c'est un dictionnaire où les clés sont les éléments et les valeurs le nombre d'occurence
+        edge_counts = Counter(edges) #Counter va compter toutes les occurences des éléments de edges, edge_counts est un dictionnaire où les clés sont les éléments (donc les arêtes = paires de points triées) et les valeurs le nombre d'occurence
         print(edge_counts)
-        nb_erreur = sum(count != 2 for count in edge_counts.values())
+        nb_erreur = sum(occurence != 2 for occurence in edge_counts.values())
 
         # Calcul de l'erreur commise 
         total_edges = len(edges)
@@ -565,7 +565,7 @@ def __(parse, tokenize):
     tokens12 = tokenize(tea12_stl)
     triangles12, normales12, name12 = parse(tokens12)
     print (edge_rule(triangles12))
-    # La teapot vérifie bien la règle 
+    # La teapot vérifie bien la règle
     return (
         cube11_file,
         cube11_stl,
@@ -586,22 +586,7 @@ def __(parse, tokenize):
 @app.cell
 def __(cube2_stl, np, parse, tokenize):
     def orientation_rule(triangles, normales, tolerance=1e-6):
-        """
-        Vérifie si les normales sont unitaires et suivent la règle de la main droite.
-
-        Parameters:
-            triangles: np.ndarray
-                Tableau de forme (n, 3, 3) représentant les triangles (n triangles, 3 sommets, 3 coordonnées).
-            normals: np.ndarray
-                Tableau de forme (n, 3) représentant les normales associées à chaque triangle.
-            tolerance: float, optional
-                Tolérance pour les comparaisons numériques (par défaut 1e-6).
-
-        Returns:
-            tuple:
-                - Pourcentage de normales non unitaires.
-                - Pourcentage de triangles ne respectant pas la règle de la main droite.
-        """
+        
         #Vérification des normales unitaires
         normes = np.linalg.norm(normales, axis=1) #tableau avec les normes des normales
         normes_1= np.abs(normes - 1)
@@ -612,7 +597,9 @@ def __(cube2_stl, np, parse, tokenize):
         # Vérification de la règle de la main droite
         calcul_normales = np.cross(triangles[:, 1] - triangles[:, 0], #on fait les produits vectoriels des vecteurs
                                        triangles[:, 2] - triangles[:, 0])
-        calcul_normales = calcul_normales / np.linalg.norm(calcul_normales, axis=1)[:, None] #on les normalises 
+        print(calcul_normales)
+        calcul_normales = calcul_normales/np.linalg.norm(calcul_normales, axis=1)[:,None] #on les normalises
+        print(calcul_normales.shape,normales.shape)
 
         produits_scalaires = np.sum(normales * calcul_normales, axis=1) # '*' fait un produit terme à terme et np.sum permet finalement d'avoir le produit scalaire au carré, comme ce sont des vecteurs unitaires cela devrait donner 1 si les quantités sont identiques
         normales_non_identiques = np.sum(np.abs(produits_scalaires - 1) > tolerance) 
@@ -627,11 +614,14 @@ def __(cube2_stl, np, parse, tokenize):
     triangles10, normales10, name10 = parse(tokens10)
     print (orientation_rule(triangles10,normales10))
 
+
     with open("data/teapot.stl", mode="rt", encoding="us-ascii") as tea3_file:
         tea3_stl = tea3_file.read()
     tokens6 = tokenize(tea3_stl)
     triangles6, normales6, name6 = parse(tokens6)
     print (orientation_rule(triangles6,normales6))
+
+
     return (
         cube3_file,
         cube3_stl,
@@ -692,6 +682,7 @@ def __(mo):
     mo.md(
         """
         Study the specification of the OBJ format (search for suitable sources online),
+
         then develop a `OBJ_to_STL` function that is rich enough to convert the OBJ bunny file into a STL bunny file.
         """
     )
@@ -700,65 +691,52 @@ def __(mo):
 
 @app.cell
 def __(np, re):
-    def OBJ_to_STL(obj_filepath, stl_filepath):
-        """
-        Convertit un fichier OBJ en un fichier STL ASCII.
+    def OBJ_to_STL(fichier_entree, stl_sortie):
+        
+        with open(fichier_entree, 'r', encoding='utf-8') as obj_file:
+            sommets = []
+            faces = []
 
-        Args:
-            obj_filepath: Chemin vers le fichier OBJ.
-            stl_filepath: Chemin de sortie pour le fichier STL.
-        """
-        try:
-            with open(obj_filepath, 'r') as obj_file:
-                vertices = []
-                faces = []
-                for line in obj_file:
-                    line = line.strip()
-                    if line.startswith('v '):
-                        parts = line.split()
-                        try:
-                          vertex = [float(x) for x in parts[1:4]]
-                          vertices.append(vertex)
-                        except ValueError:
-                          print(f"Erreur de format de sommet dans la ligne : {line}")
-                          return
-                    elif line.startswith('f '):
-                        parts = line.split()
-                        try:
-                            face_indices_str = [re.split(r'/', p)[0] for p in parts[1:4]] # pour gerer les f 1/2/3
-                            face_indices = [int(i) - 1 for i in face_indices_str] # OBJ indices are 1-based
-                            faces.append(face_indices)
-                        except (ValueError, IndexError):
-                            print(f"Erreur de format de face dans la ligne : {line}")
-                            return
-                vertices = np.array(vertices, dtype=np.float32)
-                faces = np.array(faces, dtype=np.int32)
+            for line in obj_file:
+                line = line.strip()
 
-                with open(stl_filepath, 'w') as stl_file:
-                    stl_file.write(f"solid {obj_filepath}\n") # Nom du solide basé sur le nom du fichier OBJ
+                if line.startswith('v '):
+                    vertex = [float(x) for x in line.split()[1:4]]
+                    sommets.append(vertex)
 
-                    for face in faces:
-                        v1 = vertices[face[0]]
-                        v2 = vertices[face[1]]
-                        v3 = vertices[face[2]]
+                elif line.startswith('f '):
+                    parts = line.split()[1:]
+                    face_indices = []
+                    for part in parts:
+                        index_str = re.split(r'/', part)[0]
+                        face_indices.append(int(index_str) - 1)
+                        
+            sommets = np.array(sommets, dtype=np.float32)
+            faces = np.array(faces, dtype=np.int32)
 
-                        normal = np.cross(v2 - v1, v3 - v1)
-                        normal = normal / np.linalg.norm(normal)
+        with open(stl_sortie, 'w', encoding='utf-8') as stl_file:
+            stl_file.write(f"solid {fichier_entree}\n")
 
-                        stl_file.write(f"  facet normal {normal[0]} {normal[1]} {normal[2]}\n")
-                        stl_file.write("    outer loop\n")
-                        stl_file.write(f"      vertex {v1[0]} {v1[1]} {v1[2]}\n")
-                        stl_file.write(f"      vertex {v2[0]} {v2[1]} {v2[2]}\n")
-                        stl_file.write(f"      vertex {v3[0]} {v3[1]} {v3[2]}\n")
-                        stl_file.write("    endloop\n")
-                        stl_file.write("  endfacet\n")
+            for face in faces:
+                v1 = sommets[face[0]]
+                v2 = sommets[face[1]]
+                v3 = sommets[face[2]]
 
-                    stl_file.write(f"endsolid {obj_filepath}\n")
+                normal = np.cross(v2 - v1, v3 - v1)
+                normal = normal / np.linalg.norm(normal)
 
-        except FileNotFoundError:
-            print(f"Fichier OBJ non trouvé : {obj_filepath}")
-        except Exception as e:
-            print(f"Une erreur s'est produite lors de la conversion : {e}")
+                stl_file.write(f"  facet normal {normal[0]} {normal[1]} {normal[2]}\n")
+                stl_file.write("    outer loop\n")
+                stl_file.write(f"      vertex {v1[0]} {v1[1]} {v1[2]}\n")
+                stl_file.write(f"      vertex {v2[0]} {v2[1]} {v2[2]}\n")
+                stl_file.write(f"      vertex {v3[0]} {v3[1]} {v3[2]}\n")
+                stl_file.write("    endloop\n")
+                stl_file.write("  endfacet\n")
+
+            stl_file.write(f"endsolid {fichier_entree}\n")
+        print(f"Conversion terminée (sans gestion d'erreurs) : {fichier_entree} -> {stl_sortie}")
+
+    OBJ_to_STL("data/bunny.obj","data/bunny.stl")
     return (OBJ_to_STL,)
 
 
@@ -896,84 +874,91 @@ def __(mo):
 
 
 @app.cell
-def __(json, sdf):
+def __(box, json, sdf):
     # C'est le format JSON qui est utilisé pour retranscrire les fichiers JCAD
-    {
-      "version": "1.0",
-      "metadata": {
-        "name": "ExampleModel",
-        "author": "Utilisateur",
-        "date": "2025-01-05"
-      },
-      "objects": [
-        {
-          "type": "cube",
-          "dimensions": [2, 2, 2],
-          "position": [0, 0, 0],
-          "color": "#ff0000"
-        },
-        {
-          "type": "sphere",
-          "radius": 1,
-          "position": [3, 0, 0],
-          "color": "#00ff00"
-        }
-      ]
-    }
+
     #C'est comme un dictionnaire python où les clés sont toujours des str mais les valeurs peuvent être n'importe quoi
 
 
 
 
     def jcad_to_stl(fichier_entree,fichier_sortie):
-        """
-        Convertit un fichier JupyterCAD (.jcad) en un fichier STL.
         
-        :param input_path: Chemin du fichier .jcad en entrée.
-        :param output_path: Chemin pour le fichier .stl en sortie.
-        """
-        # Charger le fichier JupyterCAD
         with open(fichier_entree, "r") as f:
             jcad_data = json.load(f)
 
-        # Créer une scène combinée avec sdf
-        scene= sdf.box([0, 0, 0])
-
         
+        stock= sdf.box([0, 0, 0]) #Crée un cube d'un cube de côté 0
+
+
         for obj in jcad_data.get("objects"):
-            
-            if obj["type"] == "cube":
-                size = obj.get("dimensions")
-                position = obj.get("position")
-                # Créer un cube
-                cube = sdf.Box(size)
-                cube = cube.translate(position)
-                scene += cube
-            
-            elif obj["type"] == "sphere":
+
+            if obj["name"] == "Box 1":
+                size = (obj.get("Height"),obj.get("Length"),obj.get("Length"))
+                Placement = obj.get("Placement")
+              
+                cube = sdf.box(size) # On ajoute le cube correspondant
+                cube = cube.translate(Placement)
+                stock = stock.union(box)
+
+            elif obj["name"] == "Sphere 1":
                 radius = obj.get("radius")
-                position = obj.get("position")
-                # Créer une sphère
-                sphere = sdf.Sphere(radius)
-                sphere = sphere.translate(position)
-                scene += sphere
-            
-            elif obj["type"] == "cylinder":
+                Placement = obj.get("Placement")
+               
+                sphere = sdf.sphere(radius) #On ajoute la sphère correspondante
+                sphere = sphere.translate(Placement)
+                stock = stock.union(sphere)
+
+            elif obj["name"] == "Cylinder 1":
                 radius = obj.get("radius")
                 height = obj.get("height")
-                position = obj.get("position")
-                # Créer un cylindre
-                cylinder = sdf.Cylinder(radius, height)
-                cylinder = cylinder.translate(position)
-                scene += cylinder
+                Placement = obj.get("Placement")
+                
+                cylinder = sdf.cylinder(radius) #On ajoute le cylindre correspondant
+                cylinder = cylinder.translate(Placement)
+                stock.union(cylinder)
 
-        # Exporter la scène en STL
-        scene.save(fichier_sortie)
+            elif obj["name"] == "Cylinder 2":
+                radius = obj.get("radius")
+                height = obj.get("height")
+                Placement = obj.get("Placement")
+                
+                cylinder = sdf.cylinder(radius) #On ajoute le cylindre correspondant
+                cylinder = cylinder.translate(Placement)
+                stock.union(cylinder)
+
+
+            elif obj["name"] == "Cylinder 3":
+                 radius = obj.get("radius")
+                 height = obj.get("height")
+                 Placement = obj.get("Placement")
+                
+                 cylinder = sdf.cylinder(radius) #On ajoute le cylindre correspondant
+                 cylinder = cylinder.translate(Placement)
+                 stock.union(cylinder)
+            
+            elif obj["name"] == "Cylinder 4":
+                radius = obj.get("radius")
+                height = obj.get("height")
+                Placement = obj.get("Placement")
+                
+                cylinder = sdf.cylinder(radius) #On ajoute le cylindre correspondant
+                cylinder = cylinder.translate(Placement)
+                stock.union(cylinder)
+
+            elif obj["name"] == "Cylinder 5":
+                radius = obj.get("radius")
+                height = obj.get("height")
+                Placement = obj.get("Placement")
+                
+                cylinder = sdf.cylinder(radius) #On ajoute le cylindre correspondant
+                cylinder = cylinder.translate(Placement)
+                stock.union(cylinder)
+       
+        stock.save(fichier_sortie)
 
 
     jcad_to_stl("data/demo_jcad.jcad", "output/demo_model.stl")
-        
-        
     return (jcad_to_stl,)
 
 
@@ -1061,13 +1046,13 @@ def __(Camera, Mesh, glm, meshio, mo, plt):
         ax.axis("off")
         camera = Camera("ortho", theta=theta, phi=phi, scale=scale)
         mesh = meshio.read(filename)
-        vertices = glm.fit_unit_cube(mesh.points)
+        sommets = glm.fit_unit_cube(mesh.points)
         faces = mesh.cells[0].data
-        vertices = glm.fit_unit_cube(vertices)
+        sommets = glm.fit_unit_cube(sommets)
         mesh = Mesh(
             ax,
             camera.transform,
-            vertices,
+            sommets,
             faces,
             cmap=plt.get_cmap(colormap),
             edgecolors=edgecolors,
